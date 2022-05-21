@@ -1,3 +1,4 @@
+from ast import Mod
 import enum
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
@@ -90,8 +91,6 @@ class Loop:
         self.parallelLoopCount += 1
 
 
-
-
 class Function:
 
     def __init__(self, name):
@@ -124,6 +123,33 @@ class Function:
 
     def addOperation(self, op):
         self.operations += [op]
+
+class Module:
+    def __init__ (self):
+        self.funcs = []
+
+    def addFunc(self, func):
+        self.funcs+= [func]
+
+class Map:
+    def __init__ (self, mapName, theMap):
+        self.name = mapName
+        self.map = theMap
+
+
+class Application:
+    def __init__ (self):
+        self.maps = []
+        self.modules = []
+    
+    def addMap(self, map):
+        self.maps += [map]
+    
+    def addModule(self, module):
+        self.modules += [module]
+
+        
+
 
 def handleType(typeStr):
     if (typeStr == "index"):
@@ -294,8 +320,12 @@ def parseIns(inputFile, block):
     line = ""
     while(True):
         line = inputFile.readline().strip()
-        print(line)
-        if(line == "}" or line == "return"):
+        # print(line)
+        if(line == "return"):
+            inputFile.readline()
+            return
+
+        if(line == "}"):
             return
 
         if(line.startswith("affine.for") or line.startswith("affine.parallel")):
@@ -327,23 +357,13 @@ def parseIns(inputFile, block):
         else:
             print("not handled " + line)
 
-       
-
-
-    
-
-def parseIR(fileName):
-    file = open(fileName, "r")
-
-    # parse_state = PARSE_STATE_NEUTRAL
-    loopNestIndex = 0  
-
+def parseModule(inputFile, module):
     while(True):
-        line = file.readline()
-        if(len(line)==0):
+        line = inputFile.readline().strip()
+        
+        if(line == "}"):
             return
-            
-        line = line[:-1].strip()
+        
         if(line.startswith("func")):
 
             func_name = line.split(" ")[1].split("(")[0][1:]
@@ -354,12 +374,43 @@ def parseIR(fileName):
 
             print("func " + func_name + " started")
 
-            parseIns(file, currFunc)
+            parseIns(inputFile, currFunc)
 
             continue
-  
+
+       
+def parseIR(fileName):
+    file = open(fileName, "r")
+    
+    workload = Application()
+
+    while(True):
+        line = file.readline()
+        if(len(line)==0):
+            return
+            
+        line = line[:-1].strip()
+
+        if (line.startswith("module")):
+            newModule = Module()
+            parseModule(file, newModule)
+            workload.addModule(newModule)
+            continue
+        elif (line.find("affine_map") != -1):
+            mapName = line.split(" = ")[0]
+            theMap = line.split("affine_map")[1]
+            map = Map(mapName, theMap)
+            workload.addMap(map)
+            continue
+        else:
+            print("not handled " + line)
+            exit()
+            continue
+
+# def printInstructions()  
 
 parseIR(selected_file)
+
 
 
 
