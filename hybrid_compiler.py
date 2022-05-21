@@ -431,23 +431,24 @@ def getOperationStr(op):
     if(op == SupportedOperation.memref_copy):
         return "COPY"
         
-def printInstructionOfABlock(block):
+
+def printInstructionOfABlock(block, nest_level):
+    instruction_sequence = ""
     for ins in block.getIns():
         if(isinstance(ins,Loop)):
-            printInstructionOfABlock(ins)
-            
+            instruction_sequence += (printInstructionOfABlock(ins, nest_level+1))
         elif (isinstance(ins, Operation)):
-            print(getOperationStr(ins.operation))
-            # print("Operation")
+            instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
         else:
-            print("Unknown")
+            instruction_sequence += "Unknown\n"
+    return instruction_sequence
 
 def printInstructions(workload):
+    instruction_sequence = ""
     for module in workload.getModules():
         for func in module.getFuncs():
-            printInstructionOfABlock(func)
-
-
+            instruction_sequence+= (printInstructionOfABlock(func, 0))
+    print(instruction_sequence)
 
 
 
