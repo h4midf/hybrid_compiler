@@ -60,18 +60,31 @@ class Operation:
 
     def setAdditionalInfo(self, info):
         self.info = info
+
+class CodeBlock:
+    def __init__ (self):
+        self.ins = []
+        # self.operations = []
+        # self.loops = []    
+
+    def addIns(self, ins):
+        self.ins += [ins]
     
+    # def addLoop(self, loop):
+    #     self.loops += [loop]
     
-class Loop:
+    # def addOperation(self, op):
+    #     self.op += [op]
+    
+    def getIns(self):
+        return self.ins
+    
+class Loop (CodeBlock):
     def __init__(self, start, end):
+        CodeBlock.__init__(self)
         self.args = {}
         self.start = start
         self.end = end 
-        self.forLoopCount = 0
-        self.forLoops = []
-        self.operations = []
-        self.parallelLoopCount = 0
-        self.parallelLoops=[]
 
     def setLoopType(self, type):
         self.type = type
@@ -79,28 +92,16 @@ class Loop:
     def setLoopLocalVariales(self, var ):
         self.localVariables[var.name] = var
 
-    def addForLoop(self, forLoop):
-        self.forLoops += [forLoop]
-        self.forLoopCount += 1
 
-    def addOperation(self, op):
-        self.operations += [op]
-
-    def addParallelLoop(self, parallelLoop):
-        self.parallelLoops += [parallelLoop]
-        self.parallelLoopCount += 1
-
-
-class Function:
+class Function(CodeBlock):
 
     def __init__(self, name):
+        CodeBlock.__init__(self)
         self.name = name
         self.args = {}
-        self.forLoopCount = 0
-        self.forLoops = []
-        self.parallelLoopCount = 0
-        self.parallelLoops = []
-        self.operations = []
+        # self.loops = []
+        # self.operations = []
+        self.ins = []
 
     def setArgsByArray(self, args):
         for arg in args:
@@ -113,16 +114,8 @@ class Function:
     def setFuncLocalVariales(self, var ):
         self.localVariables[var.name] = var
     
-    def addForLoop(self, forLoop):
-        self.forLoops += [forLoop]
-        self.forLoopCount += 1
 
-    def addParallelLoop(self, parallelLoop):
-        self.parallelLoops += [parallelLoop]
-        self.parallelLoopCount += 1
-
-    def addOperation(self, op):
-        self.operations += [op]
+    
 
 class Module:
     def __init__ (self):
@@ -130,6 +123,10 @@ class Module:
 
     def addFunc(self, func):
         self.funcs+= [func]
+    
+    def getFuncs(self):
+        return self.funcs
+
 
 class Map:
     def __init__ (self, mapName, theMap):
@@ -147,6 +144,9 @@ class Application:
     
     def addModule(self, module):
         self.modules += [module]
+
+    def getModules(self):
+        return self.modules
 
         
 
@@ -337,25 +337,30 @@ def parseIns(inputFile, block):
             endVarStr = line.split("to")[1].replace(" ", "")[:-1]
             endVar = Variable(endVarStr.split("=")[0])
             
-            newForLoop = Loop(startVar, endVar)
-            parseIns(inputFile, newForLoop)
+            newLoop = Loop(startVar, endVar)
+            parseIns(inputFile, newLoop)
+
             if(line.startswith("affine.for")):
-                block.addForLoop(newForLoop) 
-                newForLoop.setLoopType(LoopType.forLoop)
+                newLoop.setLoopType(LoopType.forLoop)
             else:
-                block.addParallelLoop(newForLoop) 
-                newForLoop.setLoopType(LoopType.parallel)
+                newLoop.setLoopType(LoopType.parallel)
+
+            # block.addLoop(newLoop) 
+            block.addIns(newLoop) 
             continue
 
-
         if(line.startswith("%")):
-            block.addOperation(parseOperation(line))
+            # block.addOperation(parseOperation(line))
+            block.addIns(parseNoOutOperation(line))
         elif (line.startswith("affine.store")):
-            block.addOperation(parseNoOutOperation(line))
+            # block.addOperation(parseNoOutOperation(line))
+            block.addIns(parseNoOutOperation(line))
         elif (line.startswith("memref.copy")):
-            block.addOperation(parseNoOutOperation(line))
+            # block.addOperation(parseNoOutOperation(line))
+            block.addIns(parseNoOutOperation(line))
         else:
             print("not handled " + line)
+
 
 def parseModule(inputFile, module):
     while(True):
@@ -379,11 +384,8 @@ def parseModule(inputFile, module):
             continue
 
        
-def parseIR(fileName):
+def parseIR(fileName, workload):
     file = open(fileName, "r")
-    
-    workload = Application()
-
     while(True):
         line = file.readline()
         if(len(line)==0):
@@ -405,11 +407,17 @@ def parseIR(fileName):
         else:
             print("not handled " + line)
             exit()
-            continue
 
-# def printInstructions()  
+# def printInstructions(workload):
+#     for module in workload.getModules():
+#         for func in module.getFuncs():
 
-parseIR(selected_file)
+
+
+
+
+workload = Application()
+parseIR(selected_file, workload)
 
 
 
