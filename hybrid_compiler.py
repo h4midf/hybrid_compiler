@@ -315,6 +315,9 @@ def parseNoOutOperation(line):
         return parse_affine_store(line)
     elif(line.startswith("memref.copy")):
         return parse_memref_copy(line)
+    else:
+        print("not handled " + line)
+        exit()
 
 def parseIns(inputFile, block):
     line = ""
@@ -351,7 +354,7 @@ def parseIns(inputFile, block):
 
         if(line.startswith("%")):
             # block.addOperation(parseOperation(line))
-            block.addIns(parseNoOutOperation(line))
+            block.addIns(parseOperation(line))
         elif (line.startswith("affine.store")):
             # block.addOperation(parseNoOutOperation(line))
             block.addIns(parseNoOutOperation(line))
@@ -372,14 +375,13 @@ def parseModule(inputFile, module):
         if(line.startswith("func")):
 
             func_name = line.split(" ")[1].split("(")[0][1:]
-            currFunc = Function(func_name)
+            newFunc = Function(func_name)
                 
             argSets = line.split("(")[1].split(")")[0].replace(" ", "").split(",")
-            currFunc.setArgsByArray(argSets)    
+            newFunc.setArgsByArray(argSets)    
 
-            print("func " + func_name + " started")
-
-            parseIns(inputFile, currFunc)
+            parseIns(inputFile, newFunc)
+            module.addFunc(newFunc)
 
             continue
 
@@ -408,9 +410,11 @@ def parseIR(fileName, workload):
             print("not handled " + line)
             exit()
 
-# def printInstructions(workload):
-#     for module in workload.getModules():
-#         for func in module.getFuncs():
+def printInstructions(workload):
+    for module in workload.getModules():
+        for func in module.getFuncs():
+            for ins in func.getIns():
+                print (type(ins))
 
 
 
@@ -418,6 +422,7 @@ def parseIR(fileName, workload):
 
 workload = Application()
 parseIR(selected_file, workload)
+printInstructions(workload)
 
 
 
