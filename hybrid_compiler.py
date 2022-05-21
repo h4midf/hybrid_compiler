@@ -1,5 +1,6 @@
 from ast import Mod
 import enum
+from webbrowser import Opera
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
 # selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
@@ -410,11 +411,42 @@ def parseIR(fileName, workload):
             print("not handled " + line)
             exit()
 
+def getOperationStr(op):
+    if(op == SupportedOperation.arith_index_cast):
+        return "CAST"
+    if(op == SupportedOperation.arith_constant):
+        return "CONST"
+    if(op == SupportedOperation.arith_addf):
+        return "ADDF"
+    if(op == SupportedOperation.arith_mulf):
+        return "MULF"
+    if(op == SupportedOperation.affine_load):
+        return "LOAD"
+    if(op == SupportedOperation.affine_store):
+        return "STORE"
+    if(op == SupportedOperation.affine_apply):
+        return "APPLY"
+    if(op == SupportedOperation.memref_alloc):
+        return "ALLOC"
+    if(op == SupportedOperation.memref_copy):
+        return "COPY"
+        
+def printInstructionOfABlock(block):
+    for ins in block.getIns():
+        if(isinstance(ins,Loop)):
+            printInstructionOfABlock(ins)
+            
+        elif (isinstance(ins, Operation)):
+            print(getOperationStr(ins.operation))
+            # print("Operation")
+        else:
+            print("Unknown")
+
 def printInstructions(workload):
     for module in workload.getModules():
         for func in module.getFuncs():
-            for ins in func.getIns():
-                print (type(ins))
+            printInstructionOfABlock(func)
+
 
 
 
