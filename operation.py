@@ -33,3 +33,22 @@ class Operation:
     
     def getOperationType(self):
         return self.operation
+    
+
+def getOperationStr(op):
+    if (op == "^"):
+        return "POW"
+    elif (op == "*"):
+        return "MUL"
+    elif (op == "/"):
+        return "DIV"
+    elif (op == "mod"):
+        return "MOD"
+    elif (op == "+"):
+        return "ADD"
+    elif (op == "-"):
+        return "SUB"
+    elif (op == "floordiv"):
+        return "FDIV"
+    else:
+        return "NON SUPPORTED OP"

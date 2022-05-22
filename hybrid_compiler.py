@@ -418,7 +418,11 @@ def compileHelper(block, nest_level, mapsParser):
 
         elif (isinstance(ins, Operation)):
             if(ins.operation == SupportedOperation.affine_apply):
-                instruction_sequence += (nest_level*"\t" + mapsParser.apply(ins) + "\n")
+                seq = ""
+                for newIns in mapsParser.apply(ins):
+
+                    seq += (nest_level*"\t" + newIns + "\n")
+                instruction_sequence += (seq)
             else:
                 instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
         else:

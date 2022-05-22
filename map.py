@@ -41,7 +41,74 @@ class Map:
             tempMapFunc = tempMapFunc.replace(self.symbol, symStr)
             return tempMapFunc[1:][:-1]
 
-    
+def Priority(tok):
+    if tok is "^" or tok is "mod" or tok is "floordiv":
+        return 3
+    elif tok is "/" or tok is "*":
+        return 2
+    elif tok is "+" or tok is "-":
+        return 1
+    # When char is '(' loop should not be executed.
+    return float("inf")
+
+def InfixToReg(expression, outputVal):
+    output = [] 
+    result = []
+    stack = []
+    tempVarCounter = 1
+    operations = ["^", "*", "/", "+", "-", "(", "mod", "floordiv"]
+    for token in expression.split(" "):
+
+        if token in operations:
+            # Pop and append operators greater than scanned operator.
+            while (
+                len(stack) > 0
+                and stack[-1] != "("
+                and Priority(stack[-1]) >= Priority(token)
+            ):
+                popped = stack.pop()
+                if(popped in operations):
+                    in1 = output[-1]
+                    in2 = output[-2]
+                    result += [getOperationStr(popped) + " temp" + str(tempVarCounter) + ", " + in1 + ", " + in2]
+                    output = output[:-2]
+                    output += ["temp"+ str(tempVarCounter)]
+                    tempVarCounter+=1 
+                else:
+                    output += [popped] 
+          
+            stack.append(token)
+        elif token is ")":
+            while stack[-1] != "(":
+                popped = stack.pop()
+                if(popped in operations):
+                    in1 = output[-1]
+                    in2 = output[-2]
+                    result += [getOperationStr(popped) + " temp" + str(tempVarCounter) + ", " + in1 + ", " + in2]
+                    output = output[:-2]
+                    output += ["temp"+ str(tempVarCounter)]
+                    tempVarCounter+=1 
+                else:
+                    output += [popped]
+
+            stack.pop()
+        else:
+            output += [token]
+    # Pop all remaining elements.
+    while len(stack) > 0:
+        popped = stack.pop()
+        if(popped in operations):
+            in1 = output[-1]
+            in2 = output[-2]
+            result += [getOperationStr(popped) + " temp" + str(tempVarCounter) + ", " + in1 + ", " + in2]
+            output = output[:-2]
+            output += ["temp"+ str(tempVarCounter)]
+            tempVarCounter+=1 
+        else:
+            output += [popped]
+    result += ["MOV " + outputVal+ ", temp" + str(tempVarCounter)]
+    return result
+
         
     
 class MapsParser:
@@ -82,16 +149,16 @@ class MapsParser:
         map = self.maps[mapName]
         if(map.type == MapType.define):
             # print(map.apply())
-            return map.apply()
+            return ["MOV " + ins.outputVal + ", " + map.apply()]
         elif(map.type == MapType.noSymbol):
             dims = ins.inVars[1].split("(")[1].split(")")[0]
             # print(map.apply(dims))
-            return map.apply(dims)
+            return InfixToReg(map.apply(dims), ins.outputVal)
         elif(map.type == MapType.withSymbol):
             dims = ins.inVars[1].split("(")[1].split(")")[0]
             symbols = ins.inVars[1].split("(")[1].split(")")[1][1:][:-1]
-            # print(map.apply(dims, symbols))
-            return map.apply(dims, symbols)
+            return (InfixToReg(map.apply(dims, symbols), ins.outputVal))
+            # return map.apply(dims, symbols)
 
 
         
