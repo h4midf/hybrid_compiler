@@ -1,25 +1,12 @@
-from ast import Mod
 import enum
-from webbrowser import Opera
+import enum
+from map import *
+from operation import *
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
 # selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
 selected_file = "./test/conv2d.mlir"
 
-# Using enum class create enumerations
-class SupportedOperation(enum.Enum):
-   arith_index_cast = 1 # arith.index_cast
-   arith_constant = 2 # arith.constant 
-   arith_addf = 3 # arith.addf
-   arith_mulf = 4 # arith.mulf
-
-   affine_load = 11 # affine.load
-   affine_store = 12 # affine.store
-   affine_apply = 13 # affine.apply
-
-   memref_alloc = 21 # memref.alloc()
-   memref_copy = 22 # memref.copy
-   
 
 class SupportedTypes(enum.Enum):
    i32 = 1 
@@ -43,39 +30,13 @@ class Variable:
     def setValType(self, type):
         self.type = type
 
-class Operation:
-    def __init__(self):
-        self.inVars = {}
-
-    def setOutputVar(self, val):
-        self.outputVal = val
-
-    def setOutputType(self, type):
-        self.outputType = type 
-
-    def setInVar(self, val, index):
-        self.inVars[index] = val
-
-    def setOperation(self, operation):
-        self.operation= operation 
-
-    def setAdditionalInfo(self, info):
-        self.info = info
 
 class CodeBlock:
     def __init__ (self):
         self.ins = []
-        # self.operations = []
-        # self.loops = []    
 
     def addIns(self, ins):
         self.ins += [ins]
-    
-    # def addLoop(self, loop):
-    #     self.loops += [loop]
-    
-    # def addOperation(self, op):
-    #     self.op += [op]
     
     def getIns(self):
         return self.ins
@@ -100,8 +61,6 @@ class Function(CodeBlock):
         CodeBlock.__init__(self)
         self.name = name
         self.args = {}
-        # self.loops = []
-        # self.operations = []
         self.ins = []
 
     def setArgsByArray(self, args):
@@ -116,8 +75,6 @@ class Function(CodeBlock):
         self.localVariables[var.name] = var
     
 
-    
-
 class Module:
     def __init__ (self):
         self.funcs = []
@@ -129,19 +86,13 @@ class Module:
         return self.funcs
 
 
-class Map:
-    def __init__ (self, mapName, theMap):
-        self.name = mapName
-        self.map = theMap
-
-
 class Application:
     def __init__ (self):
-        self.maps = []
         self.modules = []
+        self.mapsParser = MapsParser()
     
-    def addMap(self, map):
-        self.maps += [map]
+    def addMap(self, mapStr):
+        self.mapsParser.addMapByStr(mapStr)
     
     def addModule(self, module):
         self.modules += [module]
@@ -405,10 +356,7 @@ def parseIR(fileName, workload):
             workload.addModule(newModule)
             continue
         elif (line.find("affine_map") != -1):
-            mapName = line.split(" = ")[0]
-            theMap = line.split("affine_map")[1]
-            map = Map(mapName, theMap)
-            workload.addMap(map)
+            workload.addMap(line)
             continue
         else:
             print("not handled " + line)
@@ -433,6 +381,8 @@ def getOperationStr(op):
         return "ALLOC"
     if(op == SupportedOperation.memref_copy):
         return "COPY"
+
+
         
 
 def printInstructionOfABlock(block, nest_level):
@@ -457,12 +407,37 @@ def printInstructions(workload):
             instruction_sequence+= (printInstructionOfABlock(func, 0))
     print(instruction_sequence)
 
+def compileHelper(block, nest_level, mapsParser):
+    instruction_sequence = ""
+    for ins in block.getIns():
+        if(isinstance(ins,Loop)):
+            if(ins.type == LoopType.parallel):
+                instruction_sequence += (nest_level*"\t"+"PARALLEL:\n"+compileHelper(ins, nest_level+1, mapsParser))
+            else:
+                instruction_sequence += (nest_level*"\t"+"SERIAL:\n"+compileHelper(ins, nest_level+1, mapsParser))
 
+        elif (isinstance(ins, Operation)):
+            if(ins.operation == SupportedOperation.affine_apply):
+                instruction_sequence += (nest_level*"\t" + mapsParser.apply(ins) + "\n")
+            else:
+                instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
+        else:
+            instruction_sequence += "Unknown\n"
+    return instruction_sequence
+
+def compile(workload):
+    instruction_sequence = ""
+    for module in workload.getModules():
+        for func in module.getFuncs():
+            instruction_sequence+= (compileHelper(func, 0, workload.mapsParser))
+    print(instruction_sequence)
 
 
 workload = Application()
 parseIR(selected_file, workload)
-printInstructions(workload)
+# printInstructions(workload)
+
+compile(workload)
 
 
 
