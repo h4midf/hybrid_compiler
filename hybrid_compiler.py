@@ -333,7 +333,13 @@ def parseIns(inputFile, block):
             return
 
         if(line.startswith("affine.for") or line.startswith("affine.parallel")):
-            line = line[11:]
+            if(line.startswith("affine.for")):
+                line = line[11:]
+                type = LoopType.forLoop
+            else:
+                line = line[15:]
+                type = LoopType.parallel 
+
             startVarStr = line.split("to")[0].replace(" ", "")
             startVar = Variable(startVarStr.split("=")[0])
             startVar.setInitVal(startVarStr.split("=")[1])
@@ -344,10 +350,7 @@ def parseIns(inputFile, block):
             newLoop = Loop(startVar, endVar)
             parseIns(inputFile, newLoop)
 
-            if(line.startswith("affine.for")):
-                newLoop.setLoopType(LoopType.forLoop)
-            else:
-                newLoop.setLoopType(LoopType.parallel)
+            newLoop.setLoopType(type)
 
             # block.addLoop(newLoop) 
             block.addIns(newLoop) 
@@ -436,7 +439,11 @@ def printInstructionOfABlock(block, nest_level):
     instruction_sequence = ""
     for ins in block.getIns():
         if(isinstance(ins,Loop)):
-            instruction_sequence += (printInstructionOfABlock(ins, nest_level+1))
+            if(ins.type == LoopType.parallel):
+                instruction_sequence += (nest_level*"\t"+"PARALLEL:\n"+printInstructionOfABlock(ins, nest_level+1))
+            else:
+                instruction_sequence += (nest_level*"\t"+"SERIAL:\n"+printInstructionOfABlock(ins, nest_level+1))
+
         elif (isinstance(ins, Operation)):
             instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
         else:
