@@ -407,14 +407,30 @@ def printInstructions(workload):
             instruction_sequence+= (printInstructionOfABlock(func, 0))
     print(instruction_sequence)
 
+serial_loop_counter = 0
 def compileHelper(block, nest_level, mapsParser):
+    global serial_loop_counter
     instruction_sequence = ""
     for ins in block.getIns():
         if(isinstance(ins,Loop)):
             if(ins.type == LoopType.parallel):
                 instruction_sequence += (nest_level*"\t"+"PARALLEL:\n"+compileHelper(ins, nest_level+1, mapsParser))
             else:
-                instruction_sequence += (nest_level*"\t"+"SERIAL:\n"+compileHelper(ins, nest_level+1, mapsParser))
+                seq = (nest_level*"\t" + "MOV " + ins.start.name + ", " + ins.start.val + "\n")
+                seq += (nest_level*"\t" +  "LOOP" + str(serial_loop_counter) + ":\n")
+                seq += ((nest_level+1)*"\t" + "CMP " + ins.start.name + ", " + ins.end.name + "\n")
+                seq += ((nest_level+1)*"\t" + "JR " + "END_LOOP" + str(serial_loop_counter) +"\n")
+                serial_loop_counter += 1
+
+
+                instruction_sequence += (seq + (nest_level-2)*"\t" +compileHelper(ins, nest_level+1, mapsParser))
+
+                seq2 = (nest_level+1)* "\t" + "ADD " + ins.start.name + ", 1\n" 
+                seq2 += (nest_level+1)* "\t" + "J LOOP" + str(serial_loop_counter -1) + "\n"
+                seq2 += (nest_level) * "\t" + "END_LOOP" + str(serial_loop_counter -1) +":\n"
+                instruction_sequence += seq2
+
+
 
         elif (isinstance(ins, Operation)):
             if(ins.operation == SupportedOperation.affine_apply):
@@ -422,6 +438,9 @@ def compileHelper(block, nest_level, mapsParser):
                 for newIns in mapsParser.apply(ins):
 
                     seq += (nest_level*"\t" + newIns + "\n")
+                instruction_sequence += (seq)
+            elif(ins.operation == SupportedOperation.arith_constant):
+                seq = "MOV " + ins.outputVal + ", " + ins.inVars[1]  + "\n"
                 instruction_sequence += (seq)
             else:
                 instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
