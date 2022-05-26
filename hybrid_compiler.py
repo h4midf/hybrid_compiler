@@ -1,89 +1,13 @@
 import enum
-import enum
 from map import *
 from operation import *
+from code_structure import *
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
 # selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
 selected_file = "./test/conv2d.mlir"
 
 
-class SupportedTypes(enum.Enum):
-   i32 = 1 
-   i64 = 2 
-   index = 3 
-   f32 = 4
-   f64 = 5
-   memref = 6
-
-class LoopType(enum.Enum):
-    parallel = 1
-    forLoop = 2
-
-class Variable:
-    def __init__(self, name):
-        self.name = name
-
-    def setInitVal(self, val):
-        self.val= val 
-
-    def setValType(self, type):
-        self.type = type
-
-
-class CodeBlock:
-    def __init__ (self):
-        self.ins = []
-
-    def addIns(self, ins):
-        self.ins += [ins]
-    
-    def getIns(self):
-        return self.ins
-    
-class Loop (CodeBlock):
-    def __init__(self, start, end):
-        CodeBlock.__init__(self)
-        self.args = {}
-        self.start = start
-        self.end = end 
-
-    def setLoopType(self, type):
-        self.type = type
-
-    def setLoopLocalVariales(self, var ):
-        self.localVariables[var.name] = var
-
-
-class Function(CodeBlock):
-
-    def __init__(self, name):
-        CodeBlock.__init__(self)
-        self.name = name
-        self.args = {}
-        self.ins = []
-
-    def setArgsByArray(self, args):
-        for arg in args:
-            argName = arg.split(":")[0]
-            argType = arg.split(":")[1]
-            newVar = Variable(argName)
-            newVar.setValType(argType)
-            self.args[argName] = newVar
-
-    def setFuncLocalVariales(self, var ):
-        self.localVariables[var.name] = var
-    
-
-class Module:
-    def __init__ (self):
-        self.funcs = []
-
-    def addFunc(self, func):
-        self.funcs+= [func]
-    
-    def getFuncs(self):
-        return self.funcs
 
 
 class Application:
@@ -153,7 +77,7 @@ def parse_arith_addf(line):
     type = line.split(" : ")[1]
     op = Operation()
     op.setInVar(input1, 1)
-    op.setInVar(input2, 1)
+    op.setInVar(input2, 2)
     op.setOutputVar(output)
     op.setOperation(SupportedOperation.arith_addf)
     op.setOutputType(handleType(type))
@@ -167,7 +91,7 @@ def parse_arith_mulf(line):
     type = line.split(" : ")[1]
     op = Operation()
     op.setInVar(input1, 1)
-    op.setInVar(input2, 1)
+    op.setInVar(input2, 2)
     op.setOutputVar(output)
     op.setOperation(SupportedOperation.arith_mulf)
     op.setOutputType(handleType(type))
@@ -419,7 +343,7 @@ def compileHelper(block, nest_level, mapsParser):
                 seq = (nest_level*"\t" + "MOV " + ins.start.name + ", " + ins.start.val + "\n")
                 seq += (nest_level*"\t" +  "LOOP" + str(serial_loop_counter) + ":\n")
                 seq += ((nest_level+1)*"\t" + "CMP " + ins.start.name + ", " + ins.end.name + "\n")
-                seq += ((nest_level+1)*"\t" + "JR " + "END_LOOP" + str(serial_loop_counter) +"\n")
+                seq += ((nest_level+1)*"\t" + "JT " + "END_LOOP" + str(serial_loop_counter) +"\n")
                 serial_loop_counter += 1
 
 
@@ -431,7 +355,6 @@ def compileHelper(block, nest_level, mapsParser):
                 instruction_sequence += seq2
 
 
-
         elif (isinstance(ins, Operation)):
             if(ins.operation == SupportedOperation.affine_apply):
                 seq = ""
@@ -439,9 +362,19 @@ def compileHelper(block, nest_level, mapsParser):
 
                     seq += (nest_level*"\t" + newIns + "\n")
                 instruction_sequence += (seq)
+
             elif(ins.operation == SupportedOperation.arith_constant):
                 seq = "MOV " + ins.outputVal + ", " + ins.inVars[1]  + "\n"
-                instruction_sequence += (seq)
+                instruction_sequence += (nest_level*"\t" + seq)
+
+            elif(ins.operation == SupportedOperation.arith_addf):
+                seq = "ADDF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
+                instruction_sequence += (nest_level*"\t" + seq)
+
+            elif(ins.operation == SupportedOperation.arith_mulf):
+                seq = "MULF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
+                instruction_sequence += (nest_level*"\t" + seq)
+
             else:
                 instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
         else:
