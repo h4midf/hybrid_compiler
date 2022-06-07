@@ -1,11 +1,12 @@
 import enum
+from NDP import NDPSystem
 from map import *
 from operation import *
 from code_structure import *
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
 # selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
-selected_file = "./test/conv2d.mlir"
+selected_file = "./selected/conv2d/conv2d-opt.mlir"
 
 
 
@@ -113,9 +114,9 @@ def parse_affine_load (line):
 def parse_affine_store (line):
     # print(line)
     type = line.split(" : ")[-1]
-    line = "".join(line.split(" : ")[:-1])
-    input1 = line.split("affine.store")[1].split(", ")[0]
-    input2 = ", ".join(line.split("affine.store")[1].split(", ")[1:])
+    line = "".join(line.split(" : ")[:-1]).strip()
+    input1 = line.split("affine.store")[1].split(", ")[0].strip()
+    input2 = ", ".join(line.split("affine.store")[1].split(", ")[1:]).strip()
     op = Operation()
     op.setInVar(input1, 1)
     op.setInVar(input2, 2)
@@ -283,8 +284,8 @@ def parseIR(fileName, workload):
             workload.addMap(line)
             continue
         else:
-            print("not handled " + line)
-            exit()
+            if(len(line.strip())>0):
+                exit()
 
 def getOperationStr(op):
     if(op == SupportedOperation.arith_index_cast):
@@ -393,7 +394,9 @@ workload = Application()
 parseIR(selected_file, workload)
 # printInstructions(workload)
 
-compile(workload)
+# compile(workload)
+ndpSystem = NDPSystem()
+ndpSystem.splitToHostNDP(workload)
 
 
 

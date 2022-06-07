@@ -1,8 +1,15 @@
+from ast import FloorDiv
 import enum 
+# class HostRegs:
+#     def __init__ (self, count):
+#         self.regCount = count
+#     def acquireReg(self, inputs):
 
-class BaseOps (enum.Enum):
-    LOAD = 1
-    STORE = 2
+class HOSTOps (enum.Enum):
+    LABEL = 0
+
+    LOAD = 1 # LOAD DST (REG), [base]+off
+    STORE = 2 
     MOV = 3
 
     ADD = 10
@@ -10,49 +17,123 @@ class BaseOps (enum.Enum):
     MUL = 12
     DIV = 13
     MOD = 14
+    FLOORDIV = 15
+    POW = 16
+
+    ADDF = 20
+    SUBF = 21
+    MULF = 22
+    DIVF = 23 # DIVF DST, SRC1, SRC2
+
+    CMP = 30  # CMP DST, ARG1, ARG2
+    JT = 31   # JT REG, LABEL
+    J = 32    # J LABEL
+
+    
+    ALLOC = 102 # ALLOC (3,3,27,28), f32 !
+    COPY = 103  # COPY SRC, DST
+    CALL_NDP = 104 # CALL_NDP 10, KENREL
+    WAIT_NDP = 105 # WAIT_NDP 10
+
+
+
+class NDPOps(enum.Enum):
+    LABEL = 0
+
+    LOAD = 1 
+    STORE = 2
+    MOV = 3 
+
+    ADD = 10
+    SUB = 11
+    MUL = 12
+    DIV = 13
+    MOD = 14
+    FLOORDIV = 15
 
     ADDF = 20
     SUBF = 21
     MULF = 22
     DIVF = 23
 
-    CMP = 30
-    JT = 31
-    J = 32
+    CMP = 30  # CMP DST, ARG1, ARG2
+    JT = 31   # JT REG, LABEL
+    J = 32    # J LABEL
 
-class HOSTOps (enum.Enum):
-    CAST = 100
-    ALLOC = 102
-    COPY = 103
-    CALL_NDP = 104
-    WAIT_NDP = 105
-
-
-
-class NDPOps(BaseOps):
     TICK = 200
     CALL_RA = 201
     MOV_SIG = 202
     END_NDP = 210
 
+class SerialLoop:
+    def __init__ (self, index):
+        self.index = index
 
 class NDPOperation:
-    def __init__(self, type, outval, inval1, inval2):
+    def __init__(self, type):
         self.type = type
-        self.outval = outval
-        self.inval1 = inval1 
-        self.inval2 = inval2
+        self.inVars = {}
 
     def getOperationType(self):
         return self.type
+    
+    def setOutputVar(self, outVar):
+        self.outVar = outVar
+
+    def setInputVars(self, inVar, index):
+        self.inVars[index] = inVar
+    def getOutVar(self):
+        return self.outVar
+    def getInvar(self, index):
+        return self.inVars[index]
+
 
 class HostOperation:
     def __init__(self, type):
         self.type = type
-        self.invars = {}
+        self.inVars= {}
 
     def getOperationType(self):
         return self.type
 
-    def setInvar(self, value, index):
-        self.invars[index] = value
+    def setOutputVar(self, outVar):
+        self.outVar = outVar
+
+    def setInputVars(self, inVar, index):
+        self.inVars[index] = inVar
+
+    def getOutVar(self):
+        return self.outVar
+        
+    def getInvar(self, index):
+        return self.inVars[index]
+
+class HostKernel:
+    def __init__ (self, name, args):
+        self.name = name 
+        self.args = args
+        self.ins = []
+    
+    def addIns (self, ins):
+        self.ins += [ins]
+
+class NDPKernel:
+    def __init__ (self, name, args):
+        self.name = name 
+        self.args = args
+        self.ins = []
+    
+    def addIns (self, ins):
+        self.ins += [ins]
+    
+class HybridApplication:
+    def __init__ (self):
+        self.hostKernels = []
+        self.ndpKernels = []
+    
+    def addHostKernel(self, kernel):
+        self.hostKernels += [kernel]
+
+    def addNDPKernel(self, kernel):
+        self.ndpKernels += [kernel]
+     

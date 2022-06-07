@@ -1,5 +1,6 @@
 from operation import *
 import enum 
+from NDPOps import *
 
 class MapType(enum.Enum):
     define = 1 # like define in C/C++
@@ -109,6 +110,141 @@ def InfixToReg(expression, outputVal):
     result += ["MOV " + outputVal+ ", temp" + str(tempVarCounter)]
     return result
 
+def strOpToNDPOp(op, isKernel):
+    if(isKernel):
+        if(op == "+"):
+            return NDPOps.ADD
+        if(op == "-"):
+            return NDPOps.SUB
+        if(op == "*"):
+            return NDPOps.MUL
+        if(op == "/"):
+            return NDPOps.DIV
+        if(op == "mod"):
+            return NDPOps.MOD
+        if(op == "^"):
+            print("Not supported op")
+            exit()
+        if(op == "floordiv"):
+            return NDPOps.FLOORDIV
+    else:
+        if(op == "+"):
+            return HOSTOps.ADD
+        if(op == "-"):
+            return HOSTOps.SUB
+        if(op == "*"):
+            return HOSTOps.MUL
+        if(op == "/"):
+            return HOSTOps.DIV
+        if(op == "mod"):
+            return HOSTOps.MOD
+        if(op == "^"):
+            return HOSTOps.POW
+        if(op == "floordiv"):
+            return HOSTOps.FLOORDIV
+    
+        
+
+def InfixToRegNDP(expression, outputVal, isKernel):
+    output = [] 
+    result = []
+    stack = []
+    tempVarCounter = 1
+    operations = ["^", "*", "/", "+", "-", "(", "mod", "floordiv"]
+    for token in expression.split(" "):
+
+        if token in operations:
+            # Pop and append operators greater than scanned operator.
+            while (
+                len(stack) > 0
+                and stack[-1] != "("
+                and Priority(stack[-1]) >= Priority(token)
+            ):
+                popped = stack.pop()
+                if(popped in operations):
+                    in1 = output[-1]
+                    in2 = output[-2]
+                    if(isKernel):
+                        kernelOp = NDPOperation(strOpToNDPOp(popped))
+                        kernelOp.setInputVars(in1, 1)
+                        kernelOp.setInputVars(in2, 2)
+                        outputVar = "temp" + str(tempVarCounter)
+                        kernelOp.setOutputVar(outputVar)
+                        result += [kernelOp]
+                    else:
+                        hostOp = HostOperation(strOpToNDPOp(popped))
+                        hostOp.setInputVars(in1, 1)
+                        hostOp.setInputVars(in2, 2)
+                        outputVar = "temp" + str(tempVarCounter)
+                        hostOp.setOutputVar(outputVar)
+                        result += [hostOp]
+
+                    output = output[:-2]
+                    output += ["temp"+ str(tempVarCounter)]
+                    tempVarCounter+=1 
+
+                else:
+                    output += [popped] 
+            stack.append(token)
+
+        elif token is ")":
+            while stack[-1] != "(":
+                popped = stack.pop()
+                if(popped in operations):
+                    in1 = output[-1]
+                    in2 = output[-2]
+                    if(isKernel):
+                        kernelOp = NDPOperation(strOpToNDPOp(popped))
+                        kernelOp.setInputVars(in1, 1)
+                        kernelOp.setInputVars(in2, 2)
+                        outputVar = "temp" + str(tempVarCounter)
+                        kernelOp.setOutputVar(outputVar)
+                        result += [kernelOp]
+                    else:
+                        hostOp = HostOperation(strOpToNDPOp(popped))
+                        hostOp.setInputVars(in1, 1)
+                        hostOp.setInputVars(in2, 2)
+                        outputVar = "temp" + str(tempVarCounter)
+                        hostOp.setOutputVar(outputVar)
+                        result += [hostOp]
+
+                    output = output[:-2]
+                    output += ["temp"+ str(tempVarCounter)]
+                    tempVarCounter+=1 
+                else:
+                    output += [popped]
+
+            stack.pop()
+        else:
+            output += [token]
+    # Pop all remaining elements.
+    while len(stack) > 0:
+        popped = stack.pop()
+        if(popped in operations):
+            in1 = output[-1]
+            in2 = output[-2]
+            if(isKernel):
+                kernelOp = NDPOperation(strOpToNDPOp(popped, isKernel))
+                kernelOp.setInputVars(in1, 1)
+                kernelOp.setInputVars(in2, 2)
+                outputVar = "temp" + str(tempVarCounter)
+                kernelOp.setOutputVar(outputVar)
+                result += [kernelOp]
+            else:
+                hostOp = HostOperation(strOpToNDPOp(popped, isKernel))
+                hostOp.setInputVars(in1, 1)
+                hostOp.setInputVars(in2, 2)
+                outputVar = "temp" + str(tempVarCounter)
+                hostOp.setOutputVar(outputVar)
+                result += [hostOp]
+            output = output[:-2]
+            output += ["temp"+ str(tempVarCounter)]
+            tempVarCounter+=1 
+        else:
+            output += [popped]
+        
+    result[-1].setOutputVar(outputVal)
+    return result
         
     
 class MapsParser:
@@ -159,6 +295,30 @@ class MapsParser:
             symbols = ins.inVars[1].split("(")[1].split(")")[1][1:][:-1]
             return (InfixToReg(map.apply(dims, symbols), ins.outputVal))
             # return map.apply(dims, symbols)
+
+    def applyNDP(self, ins, isKernel):
+        mapName = ins.inVars[1].split("(")[0]
+        map = self.maps[mapName]
+        if(map.type == MapType.define):
+            if(isKernel):
+                kernelOp = NDPOperation(NDPOps.MOV)
+                kernelOp.setOutputVar(ins.outputVal)
+                kernelOp.setInputVars(map.apply(),1)
+                return [kernelOp]
+            else:
+                hostOp = HostOperation(HOSTOps.MOV)
+                hostOp.setOutputVar(ins.outputVal)
+                hostOp.setInputVars(map.apply(),1)
+                return [hostOp]
+
+        elif(map.type == MapType.noSymbol):
+            dims = ins.inVars[1].split("(")[1].split(")")[0]
+            return InfixToRegNDP(map.apply(dims), ins.outputVal, isKernel)
+        elif(map.type == MapType.withSymbol):
+            dims = ins.inVars[1].split("(")[1].split(")")[0]
+            symbols = ins.inVars[1].split("(")[1].split(")")[1][1:][:-1]
+            return InfixToRegNDP(map.apply(dims, symbols), ins.outputVal,isKernel)
+
 
 
         
