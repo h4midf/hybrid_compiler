@@ -1,5 +1,6 @@
 export MLIR_OPT=~/Programming/current_ws/build/llvm-project/llvm/bin/mlir-opt
-export AFFINE_CMD="--affine-parallelize=max-nested=1 --affine-simplify-structures --affine-loop-coalescing"
+# export AFFINE_CMD="--affine-parallelize=max-nested=1 --affine-simplify-structures --affine-loop-coalescing"
+export AFFINE_CMD="--affine-parallelize --affine-simplify-structures --affine-loop-coalescing"
 
 #  ~/Programming/outputs/polybench_affine/linear-algebra/kernels/3mm/3mm.mlir >> ~/Programming/outputs/hybrid_compiler/git/hybrid_compiler/selected/3
 

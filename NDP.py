@@ -1,16 +1,31 @@
-from re import I
+
 from code_structure import *
 from operation import * 
 from NDPOps import *
+import enum 
 
+
+class NDPKernel:
+    def __init__ (self, inputVars, name):
+        self.type = type
+        self.vars = inputVars
+        self.name = name
+        self.ins = []
+
+    def addIns(self, ins):
+        self.ins += ins
+
+
+        
 class NDPSystem:
     serial_loop_counter = 0
     ndp_temp_reg_counter = 0
     host_temp_reg_counter = 0
+    ndp_kernel_count = 0
 
     def __init__ (self):
         self.hostKernels = []
-        self.ndpKernels = []
+        self.ndpKernels = {}
     
     def addHostKernel(self, kernel):
         self.hostKernels += [kernel]
@@ -18,33 +33,26 @@ class NDPSystem:
     def addNDPKernel(self, kernel):
         self.ndpKernels += [kernel]
     
-    def parseIns(self, ins, mapsParser, isKernel):
+    def evalDic(self, variableDic, variable):
+        if(variable in variableDic):
+            return variableDic[variable]
+        return variable 
+
+    def parseIns(self, ins, mapsParser, isKernel, variableDic):
         if(isinstance(ins,Loop)):
             if(ins.type == LoopType.forLoop):
                 res = []
-                if(isKernel):
-                    op = NDPOperation(NDPOps.MOV)
-                    labelOp = NDPOperation(NDPOps.LABEL)
-                    cmpOp = NDPOperation(NDPOps.CMP)
-                    print(self.ndp_temp_reg_counter)
-                    cmpOp.setOutputVar("temp" +str(self.ndp_temp_reg_counter))
-                    jtOp = NDPOperation(NDPOps.JT)
-                    jtOp.setInputVars("temp"+str(self.ndp_temp_reg_counter), 1)
-                    self.ndp_temp_reg_counter += 1
+                op = NDPSysOperation(NDPSysOps.MOV)
+                labelOp = NDPSysOperation(NDPSysOps.LABEL)
+                cmpOp = NDPSysOperation(NDPSysOps.CMP)
+                cmpOp.setOutputVar("temp" +str(self.ndp_temp_reg_counter))
+                jtOp = NDPSysOperation(NDPSysOps.JT)
+                jtOp.setInputVars("temp"+str(self.ndp_temp_reg_counter), 1)
+                self.ndp_temp_reg_counter += 1
 
-                    endLabelOp = NDPOperation(NDPOps.LABEL)
+                endLabelOp = NDPSysOperation(NDPSysOps.LABEL)
                     
-                else:
-                    op = HostOperation(HOSTOps.MOV)
-                    labelOp = HostOperation(HOSTOps.LABEL)
-                    cmpOp = HostOperation(HOSTOps.CMP)
-                    cmpOp.setOutputVar(self.host_temp_reg_counter)
-                    jtOp = HostOperation(HOSTOps.JT)
-                    jtOp.setInputVars("temp"+str(self.host_temp_reg_counter), 1)
-                    self.host_temp_reg_counter += 1
-                    
-
-                    endLabelOp = HostOperation(HOSTOps.LABEL)
+               
 
                 op.setOutputVar(ins.start.name)
                 op.setInputVars(ins.start.val, 1)
@@ -56,88 +64,83 @@ class NDPSystem:
                 jtOp.setOutputVar(self.serial_loop_counter)
                 self.serial_loop_counter += 1
                 res += [op, labelOp, cmpOp, jtOp]
-
                 
                 for l_ins in ins.getIns():
+                    newIns, variableDic = self.parseIns(l_ins, mapsParser, isKernel, variableDic)
+                    res += newIns
 
-                    res+= self.parseIns(l_ins, mapsParser, isKernel)
-
-                if(isKernel):
-                    addOp = NDPOperation(NDPOps.ADD)
-                    jOp = NDPOperation(NDPOps.J)
-                else:
-                    addOp = HostOperation(HOSTOps.ADD)
-                    jOp = HostOperation(HOSTOps.J)
+                addOp = NDPSysOperation(NDPSysOps.ADD)
+                jOp = NDPSysOperation(NDPSysOps.J)
 
                 addOp.setInputVars(ins.start.name, 1) 
                 addOp.setInputVars(1, 2) 
                 addOp.setOutputVar(ins.start.name)
                 jOp.setInputVars(self.serial_loop_counter-2, 1)
                 res += [addOp, jOp, endLabelOp]
-                return res
+                return res, variableDic
             else:
-                print("parallel Loop! shouldn't come here")
+                print("parallel Loop " + ins.start.val + " " + ins.end.val)
+
 
         elif(ins.operation == SupportedOperation.affine_apply):
-            return mapsParser.applyNDP(ins, isKernel)
+            return mapsParser.applyNDP(ins, isKernel, variableDic), variableDic
+
         elif(ins.operation == SupportedOperation.arith_index_cast):
-            # print("not handled")
-            return [] # TODO: We must add the support of casting at some point!
+            variableDic[ins.outputVal] = ins.inVars[1]
+            return [], variableDic
+
         elif(ins.operation == SupportedOperation.arith_constant):
-            if(isKernel):
-                movOp = NDPOperation(NDPOps.MOV)
-            else:
-                movOp = HostOperation(HOSTOps.MOV)
+            movOp = NDPSysOperation(NDPSysOps.MOV)
             movOp.setOutputVar(ins.outputVal)
-            movOp.setInputVars(ins.insVars[1], 1)
-            return [movOp]
+            movOp.setInputVars(self.evalDic(variableDic, ins.inVars[1]), 1)
+            return [movOp], variableDic
         elif(ins.operation == SupportedOperation.arith_addf):
-            if(isKernel):
-                addfOp = NDPOperation(NDPOps.ADDF)
-            else:
-                addfOp = HostOperation(HOSTOps.ADDF)
+            addfOp = NDPSysOperation(NDPSysOps.ADDF)
             addfOp.setOutputVar(ins.outputVal)
-            addfOp.setInputVars(ins.inVars[1], 1)
-            addfOp.setInputVars(ins.inVars[2], 2)
-            return [addfOp]
+            addfOp.setInputVars(self.evalDic(variableDic, ins.inVars[1]), 1)
+            addfOp.setInputVars(self.evalDic(variableDic, ins.inVars[2]), 2)
+            return [addfOp], variableDic
 
         elif(ins.operation == SupportedOperation.arith_mulf):
             if(isKernel):
-                mulfOp = NDPOperation(NDPOps.MULF)
+                mulfOp = NDPSysOperation(NDPSysOps.MULF)
             else:
-                mulfOp = HostOperation(HOSTOps.MULF)
+                mulfOp = NDPSysOperation(NDPSysOps.MULF)
             mulfOp.setOutputVar(ins.outputVal)
-            mulfOp.setInputVars(ins.inVars[1], 1)
-            mulfOp.setInputVars(ins.inVars[2], 2)
-            return [mulfOp]
+            mulfOp.setInputVars(self.evalDic(variableDic, ins.inVars[1]), 1)
+            mulfOp.setInputVars(self.evalDic(variableDic, ins.inVars[2]), 2)
+            return [mulfOp], variableDic
 
         elif(ins.operation == SupportedOperation.affine_load):
             if(isKernel):
-                loadOp = NDPOperation(NDPOps.LOAD)
+                loadOp = NDPSysOperation(NDPSysOps.LOAD)
             else:
-                loadOp = HostOperation(HOSTOps.LOAD)
+                loadOp = NDPSysOperation(NDPSysOps.LOAD)
             
             baseAddress = ins.inVars[1].split("[")[0]
             indexes = ins.inVars[1].split("[")[1][:-1].split(", ")
-            # print(baseAddress,indexes)
-            loadOp.setInputVars(baseAddress, 1)
+            for i in range (len(indexes)):
+                if(indexes[i] in variableDic):
+                    indexes[i] = variableDic[indexes[i]]
+            loadOp.setInputVars(self.evalDic(variableDic, baseAddress), 1)
             loadOp.setInputVars(indexes, 2)
             loadOp.setOutputVar(ins.outputVal)
-            return [loadOp]
+            loadOp.setAdditionalInfo(ins.info)
+            return [loadOp], variableDic
 
         elif(ins.operation == SupportedOperation.affine_store):
-            if(isKernel):
-                storeOp = NDPOperation(NDPOps.STORE)
-            else:
-                storeOp = HostOperation(HOSTOps.STORE)
-            
+            storeOp = NDPSysOperation(NDPSysOps.STORE)
             baseAddress = ins.inVars[2].split("[")[0]
             indexes = ins.inVars[2].split("[")[1][:-1].split(", ")
+            for i in range (len(indexes)):
+                if(indexes[i] in variableDic):
+                    indexes[i] = variableDic[indexes[i]]
             # print(baseAddress,indexes)
-            storeOp.setInputVars(baseAddress, 1)
+            storeOp.setInputVars(self.evalDic(variableDic, baseAddress), 1)
             storeOp.setInputVars(indexes, 2)
             storeOp.setOutputVar(ins.inVars[1])
-            return [storeOp]
+            storeOp.setAdditionalInfo(ins.info)
+            return [storeOp], variableDic
         elif(ins.operation == SupportedOperation.memref_alloc):
             print("not implemented !")
         elif(ins.operation == SupportedOperation.memref_copy):
@@ -148,117 +151,214 @@ class NDPSystem:
         return []
 
         
-
-    def parallelLoopKernel(self, block, mapsParser):
-        parsedInstructions = []
-        for ins in block.ins:
-            parsedInstructions += self.parseIns(ins, mapsParser, True)
-        self.printNDPIns(parsedInstructions)
-
-        # print(len(block.ins))
-        # for ins in block.ins:
+    
+    def parallelLoopKernel(self, block, mapsParser, variableDic):
+        startPoint = self.evalDic(variableDic, block.start.val)
+        endPoint = self.evalDic(variableDic, block.end.val)
             
+        kernels = []
+        
+        for i in range (int(startPoint), int(endPoint) + 1):
+            newKernel = NDPKernel(NDPKernelType.PARALLEL)
+            variableDic[block.start.name] = i
+            for ins in block.ins:
+                if(isinstance(ins, Loop)):
+                    if(ins.type == LoopType.parallel):
+                        kernels+= self.parallelLoopKernel(ins, mapsParser, variableDic)
+                    else:
+                        print("Oyyy" )
+                        variableDic[ins.start.name] = ins.start.val
+                        print(variableDic)
+                        res = self.parseIns(ins, mapsParser, True, variableDic)
+                        variableDic = res[1]
+                        newKernel.addIns(res[0])
+                else:
+                    res = self.parseIns(ins, mapsParser, True, variableDic)
+                    variableDic = res[1]
+                    newKernel.addIns(res[0])
+
+            kernels+= [newKernel]
+
+        # self.printNDPIns(kernels)
+        return kernels
+
+    def addLoopStartIns(self, ins, host_temp_reg_counter, serial_loop_counter):
+        res = []
+        op = NDPSysOperation(NDPSysOps.MOV)
+        labelOp = NDPSysOperation(NDPSysOps.LABEL)
+        cmpOp = NDPSysOperation(NDPSysOps.CMP)
+        cmpOp.setOutputVar("temp"+str(host_temp_reg_counter))
+        jtOp = NDPSysOperation(NDPSysOps.JT)
+        jtOp.setInputVars("temp"+str(host_temp_reg_counter), 1)
+
+
+        op.setOutputVar(ins.start.name)
+        op.setInputVars(ins.start.val, 1)
+        labelOp.setInputVars(serial_loop_counter, 1)
+        cmpOp.setInputVars(ins.start.name, 1)
+        cmpOp.setInputVars(ins.end.name, 2)
+        jtOp.setOutputVar(serial_loop_counter+1)
+        return [op, labelOp, cmpOp, jtOp]
+        
+    def addLoopEndIns(self, ins, serial_loop_counter):
+        addOp = NDPSysOperation(NDPSysOps.ADD)
+        jOp = NDPSysOperation(NDPSysOps.J)
+        endLabelOp = NDPSysOperation(NDPSysOps.LABEL)
+        endLabelOp.setInputVars(serial_loop_counter+1, 1)
+
+        addOp.setInputVars(ins.start.name, 1) 
+        addOp.setInputVars(1, 2) 
+        addOp.setOutputVar(ins.start.name)
+        jOp.setInputVars(serial_loop_counter, 1)
+        return [addOp, jOp, endLabelOp]
 
     def splitHelperHost(self, block, mapsParser):
-        result_func = []
-        instruction_sequence = ""
+
+        hostInst = []
+        localVariables = {}
+        variableDic = {}
+
         for ins in block.getIns():
             if(isinstance(ins,Loop)):
                 if(ins.type == LoopType.parallel):
-                    # instruction_sequence += (nest_level*"\t"+"PARALLEL:\n"+compileHelper(ins, nest_level+1, mapsParser))
-                    self.parallelLoopKernel(ins, mapsParser)
+                    localVars = [ins.start.name, ins.end.name]
+                    hostInst += self.addLoopStartIns(ins, self.host_temp_reg_counter, self.serial_loop_counter)
+                    
+                    j = 2 
+                    tempIns = []
+                    loopCount = 1
+                    while(True):
+                        if(len(ins.ins) == 1 and ins.ins[0].type == LoopType.parallel):
+                            localVars += [ins.ins[0].start.name, ins.ins[0].end.name]
+                            tempIns += [ins.ins[0]]
+                            hostInst += self.addLoopStartIns(ins.ins[0], self.host_temp_reg_counter+(j/2), self.serial_loop_counter + j)
+                            j += 2
+                            ins = ins.ins[0]
+                            loopCount += 1
+                        
+                        else:
+                            newKernel = NDPKernel(localVars, self.ndp_kernel_count)
+                            for l_ins in ins.ins:
+                                newKernel.addIns(self.parseIns(l_ins, mapsParser, True, variableDic)[0])
+                                # print(self.parseIns(l_ins, mapsParser, True, variableDic)[0])
+                            self.ndpKernels[self.ndp_kernel_count] = newKernel
+
+                            callNDPOp = NDPSysOperation(NDPSysOps.CALL_NDP)
+                            for i in range (len(localVars)):
+                                callNDPOp.setInputVars(localVars[i], i)
+                            callNDPOp.setOutputVar("NDPKernel" + str(self.ndp_kernel_count))
+                            self.ndp_kernel_count += 1
+                            hostInst+= [callNDPOp]
+                            break 
+
+                    j -= 2
+                    while(j>0):
+                        hostInst += self.addLoopEndIns(tempIns[-1], self.serial_loop_counter + j)
+                        tempIns = tempIns[:-1]
+                        j -= 2
+                    hostInst += self.addLoopEndIns(ins, self.serial_loop_counter)
+                    self.serial_loop_counter += loopCount
+                    self.host_temp_reg_counter += loopCount
+
 
                 else:
-                    seq = ("\t" + "MOV " + ins.start.name + ", " + ins.start.val + "\n")
-                    seq += ("\t" +  "LOOP" + ":\n")
-                    seq += ("\t" + "CMP " + ins.start.name + ", " + ins.end.name + "\n")
-                    seq += ("\t" + "JT " + "END_LOOP" + "\n")
-
-
-                    # instruction_sequence += (seq + (nest_level-2)*"\t" +(ins, nest_level+1, mapsParser))
-                    # parallelLoopKernel(ins, mapsParser)
-
-                    seq2 = "\t" + "ADD " + ins.start.name + ", 1\n" 
-                    seq2 += "\t" + "J LOOP" + "\n"
-                    seq2 += "\t" + "END_LOOP" + ":\n"
-                    instruction_sequence += seq2
+                    print("Handle here1")
 
 
             elif (isinstance(ins, Operation)):
                 if(ins.operation == SupportedOperation.affine_apply):
-                    seq = ""
-                    for newIns in mapsParser.apply(ins):
+                    print("Handle here 2")
+                    # seq = ""
+                    # for newIns in mapsParser.apply(ins):
 
-                        seq += ("\t" + newIns + "\n")
-                    instruction_sequence += (seq)
+                    #     seq += ("\t" + newIns + "\n")
+                    # instruction_sequence += (seq)
 
                 elif(ins.operation == SupportedOperation.arith_constant):
-                    seq = "MOV " + ins.outputVal + ", " + ins.inVars[1]  + "\n"
-                    instruction_sequence += ("\t" + seq)
+                    newIns, variableDic = self.parseIns(ins,mapsParser, False, {})
+                    hostInst += newIns
+                elif(ins.operation == SupportedOperation.arith_index_cast):
+                    newIns, variableDic = self.parseIns(ins,mapsParser, False, {})
+                    hostInst += newIns
 
                 elif(ins.operation == SupportedOperation.arith_addf):
-                    seq = "ADDF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
-                    instruction_sequence += ("\t" + seq)
+                    print("Handle here 4")
 
                 elif(ins.operation == SupportedOperation.arith_mulf):
-                    seq = "MULF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
-                    instruction_sequence += ("\t" + seq)
+                    print("Handle here 5")
 
                 else:
-                    instruction_sequence += ("\t" + getOperationStr(ins.operation) + "\n")
+                    print("Handle here 6")
             else:
                 instruction_sequence += "Unknown\n"
-        return instruction_sequence
+        # self.printNDPIns(ndpKernels, -1)
+        return hostInst 
+    
 
     def splitToHostNDP(self, workload):
-        instruction_sequence = ""
+        fileName = "host_ins.txt"
+        file = open(fileName, "w+")
         for module in workload.getModules():
             for func in module.getFuncs():
-                instruction_sequence+= (self.splitHelperHost(func, workload.mapsParser))
-        # print(instruction_sequence)
+                # print("<-- func " + func.name + " starts -->")
+                self.writeFuncArgs(func.args, file)
+                hostInst = self.splitHelperHost(func, workload.mapsParser)
+                self.writeFullIns(hostInst, file)
+                for i in range (self.ndp_kernel_count):
+                    file = open("NDPKernel"+str(i) + ".txt", "w+")
+                    self.writeFullIns(self.ndpKernels[i].ins, file)
+                    # print(self.ndpKernels[i].ins)
+                # print("<-- func " + func.name + " ends -->")
+
+    def writeFuncArgs(self, args, file):
+        file.write("---args---\n")
+        for arg in args:
+            file.write(arg + " : " + args[arg].type + "\n")
+        file.write("---end-args---\n")
     
-    def printNDPIns(self, insArray):
-        print("___Kernel___")
+    def writeFullIns(self, insArray, file):
         for ins in insArray:
-            if(isinstance(ins, NDPOperation)):
-                if(ins.getOperationType() == NDPOps.LABEL):
-                    print("LABEL" + str(ins.inVars[1]) + ":")
-                elif(ins.getOperationType() == NDPOps.LOAD):
-                    print("LOAD " + ins.getOutVar() + ", " + str(ins.inVars[1]) + str(ins.inVars[2]))
-                elif(ins.getOperationType() == NDPOps.STORE):
-                    print("STORE " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + str(ins.inVars[2]))
-                elif(ins.getOperationType() == NDPOps.MOV):
-                    print("MOV " + ins.getOutVar() + ", " + ins.inVars[1])
-                elif(ins.getOperationType() == NDPOps.ADD):
-                    print("ADD " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + ", " + str(ins.inVars[2]))
-                elif(ins.getOperationType() == NDPOps.SUB):
-                    print("SUB " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.MUL):
-                    print("MUL " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.DIV):
-                    print("DIV " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.MOD):
-                    print("MOD " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.FLOORDIV):
-                    print("FLOORDIV " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.ADDF):
-                    print("ADDF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.SUBF):
-                    print("SUBF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.MULF):
-                    print("MULF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.DIVF):
-                    print("DIVF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2])
-                elif(ins.getOperationType() == NDPOps.CMP):
-                    print("CMP " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + ", " + str(ins.inVars[2]))
-                elif(ins.getOperationType() == NDPOps.JT):
-                    print("JT " + str(ins.getInvar(1)) + ", LABEL" + str(ins.getOutVar()))
-                elif(ins.getOperationType() == NDPOps.J):
-                    print("J LABEL" + str(ins.getInvar(1)))
-                else:
-                    print("!!" + str(ins.getOperationType()))
-            else:
-                print("Not printing HOST yet")
-        # print(insArray)
-        print("___END___")
     
+            if(ins.getOperationType() == NDPSysOps.LABEL):
+                file.write("LABEL" + str(ins.inVars[1]) + ":" + "\n")
+            elif(ins.getOperationType() == NDPSysOps.LOAD):
+                file.write("LOAD " + ins.getOutVar() + ", " + str(ins.inVars[1]) + str(ins.inVars[2])+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.STORE):
+                file.write("STORE " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + str(ins.inVars[2])+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.MOV):
+                file.write("MOV " + ins.getOutVar() + ", " + ins.inVars[1]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.ADD):
+                file.write("ADD " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + ", " + str(ins.inVars[2])+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.SUB):
+                file.write("SUB " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.MUL):
+                file.write("MUL " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.DIV):
+                file.write("DIV " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.MOD):
+                file.write("MOD " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.FLOORDIV):
+                file.write("FLOORDIV " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.ADDF):
+                file.write("ADDF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.SUBF):
+                file.write("SUBF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.MULF):
+                file.write("MULF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.DIVF):
+                file.write("DIVF " + ins.getOutVar() + ", " + ins.inVars[1] + ", " + ins.inVars[2]+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.CMP):
+                file.write("CMP " + str(ins.getOutVar()) + ", " + str(ins.inVars[1]) + ", " + str(ins.inVars[2])+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.JT):
+                file.write("JT " + str(ins.getInvar(1)) + ", LABEL" + str(ins.getOutVar())+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.J):
+                file.write("J LABEL" + str(ins.getInvar(1))+ "\n")
+            elif(ins.getOperationType() == NDPSysOps.CALL_NDP):
+                file.write("CALL_NDP " + ins.getOutVar() + ", " + str(ins.inVars.values())+ "\n")
+            else:
+                file.write("!!" + str(ins.getOperationType()))
+
+
+        # print(insArray)
+        # print("___END___")
+

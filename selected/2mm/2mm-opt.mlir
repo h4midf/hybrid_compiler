@@ -6,7 +6,7 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<"dlti.endianness"
     %2 = arith.index_cast %arg3 : i32 to index
     %3 = arith.index_cast %arg0 : i32 to index
     affine.parallel (%arg11) = (0) to (symbol(%3)) {
-      affine.for %arg12 = 0 to %1 {
+      affine.parallel (%arg12) = (0) to (symbol(%1)) {
         affine.store %cst, %arg6[%arg11, %arg12] : memref<?x900xf64>
         affine.for %arg13 = 0 to %0 {
           %4 = affine.load %arg7[%arg11, %arg13] : memref<?x1100xf64>
@@ -20,7 +20,7 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<"dlti.endianness"
       }
     }
     affine.parallel (%arg11) = (0) to (symbol(%3)) {
-      affine.for %arg12 = 0 to %2 {
+      affine.parallel (%arg12) = (0) to (symbol(%2)) {
         %4 = affine.load %arg10[%arg11, %arg12] : memref<?x1200xf64>
         %5 = arith.mulf %4, %arg5 : f64
         affine.store %5, %arg10[%arg11, %arg12] : memref<?x1200xf64>

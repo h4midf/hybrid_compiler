@@ -1,4 +1,5 @@
 import enum
+from os import environ
 from NDP import NDPSystem
 from map import *
 from operation import *
@@ -6,7 +7,8 @@ from code_structure import *
 
 # selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
 # selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
-selected_file = "./selected/conv2d/conv2d-opt.mlir"
+# selected_file = "./selected/conv2d/conv2d-opt.mlir"
+selected_file = "./selected/3mm/3mm-opt.mlir"
 
 
 
@@ -45,11 +47,14 @@ def handleType(typeStr):
     print("Not handled type " + typeStr)
     exit()
 
-    
+def parseInputVar(input):
+    if(input.find("symbol")!=-1):
+        return input.split("symbol(")[1].split(")")[0]
+    return input
 def parse_arith_index_cast(line):
     # print(line)
     output = line.split(" = ")[0]
-    input = line.split(" ")[3]
+    input = parseInputVar(line.split(" ")[3])
     type = line.split(" ")[7]
     op = Operation()
     op.setInVar(input, 1)
@@ -61,7 +66,7 @@ def parse_arith_index_cast(line):
 def parse_arith_constant(line):
     # print(line)
     output = line.split(" = ")[0]
-    input = line.split(" ")[3]
+    input = parseInputVar(line.split(" ")[3])
     type = line.split(" ")[5]
     op = Operation()
     op.setInVar(input, 1)
@@ -73,8 +78,8 @@ def parse_arith_constant(line):
 def parse_arith_addf(line):
     # print(line)
     output = line.split(" = ")[0]
-    input1 = line.split(" ")[3].split(",")[0]
-    input2 = line.split(" ")[4]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
     type = line.split(" : ")[1]
     op = Operation()
     op.setInVar(input1, 1)
@@ -87,8 +92,8 @@ def parse_arith_addf(line):
 def parse_arith_mulf(line):
     # print(line)
     output = line.split(" = ")[0]
-    input1 = line.split(" ")[3].split(",")[0]
-    input2 = line.split(" ")[4]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
     type = line.split(" : ")[1]
     op = Operation()
     op.setInVar(input1, 1)
@@ -101,7 +106,7 @@ def parse_arith_mulf(line):
 def parse_affine_load (line):
     # print(line)
     output = line.split(" = ")[0]
-    input = line.split(" = ")[1].split("affine.load")[1].split(" : ")[0].strip()
+    input = parseInputVar(line.split(" = ")[1].split("affine.load")[1].split(" : ")[0].strip())
     type = line.split(" : ")[1]
     op = Operation()
     op.setInVar(input, 1)
@@ -115,8 +120,8 @@ def parse_affine_store (line):
     # print(line)
     type = line.split(" : ")[-1]
     line = "".join(line.split(" : ")[:-1]).strip()
-    input1 = line.split("affine.store")[1].split(", ")[0].strip()
-    input2 = ", ".join(line.split("affine.store")[1].split(", ")[1:]).strip()
+    input1 = parseInputVar(line.split("affine.store")[1].split(", ")[0].strip())
+    input2 = parseInputVar(", ".join(line.split("affine.store")[1].split(", ")[1:]).strip())
     op = Operation()
     op.setInVar(input1, 1)
     op.setInVar(input2, 2)
@@ -128,7 +133,7 @@ def parse_affine_store (line):
 def parse_affine_apply (line):
     # print(line)
     output = line.split(" = ")[0]
-    input = line.split(" = ")[1].split("affine.apply")[1].strip()
+    input = parseInputVar(line.split(" = ")[1].split("affine.apply")[1].strip())
     op = Operation()
     op.setInVar(input, 1)
     op.setOutputVar(output)
@@ -138,7 +143,7 @@ def parse_affine_apply (line):
 def parse_memref_alloc (line):
     # print(line)
     output = line.split(" = ")[0]
-    input = line.split(" = ")[1].split("memref.alloc()")[1].split(" : ")[0].strip()
+    input = parseInputVar(line.split(" = ")[1].split("memref.alloc()")[1].split(" : ")[0].strip())
     type = line.split(" : ")[-1]
     op = Operation()
     op.setInVar(input, 1)
@@ -151,8 +156,8 @@ def parse_memref_alloc (line):
 def parse_memref_copy (line):
     # print(line)
     line = line[12:]
-    fromVar = line.split(" : ")[0].split(", ")[0]
-    toVar = line.split(" : ")[0].split(", ")[1]
+    fromVar = parseInputVar(line.split(" : ")[0].split(", ")[0])
+    toVar = parseInputVar(line.split(" : ")[0].split(", ")[1])
     outputType1 = line.split(" : ")[1].split(" to ")[0]
     outputType2 = line.split(" : ")[1].split(" to ")[1]
     # print(fromVar, toVar, outputType1, outputType2)
@@ -183,7 +188,7 @@ def parseOperation(line):
         return parse_memref_alloc(line)
 
     else:
-        print("not handled " + operation)
+        print("not handled !! " + operation)
         print(line)
         exit()
 
@@ -193,7 +198,7 @@ def parseNoOutOperation(line):
     elif(line.startswith("memref.copy")):
         return parse_memref_copy(line)
     else:
-        print("not handled " + line)
+        print("not handled !!!" + line)
         exit()
 
 def parseIns(inputFile, block):
@@ -217,15 +222,25 @@ def parseIns(inputFile, block):
                 type = LoopType.parallel 
 
             startVarStr = line.split("to")[0].replace(" ", "")
-            startVar = Variable(startVarStr.split("=")[0])
-            startVar.setInitVal(startVarStr.split("=")[1])
+            startVarName = startVarStr.split("=")[0]
+            if(startVarName[0] == "("):
+                startVarName = startVarName[1:][:-1]
+            startVar = Variable(parseInputVar(startVarName))
+            startVarStr = startVarStr.split("=")[1]
+            if(startVarStr[0]=="("):
+                startVarStr = startVarStr[1:][:-1]
+            startVar.setInitVal(parseInputVar(startVarStr))
 
             endVarStr = line.split("to")[1].replace(" ", "")[:-1]
-            endVar = Variable(endVarStr.split("=")[0])
-            
+            endVar = Variable(parseInputVar(endVarStr.split("=")[0]))
+            if(endVarStr[0]=="("):
+                endVarStr = endVarStr[1:][:-1]
+            endVar.setInitVal(parseInputVar(endVarStr))
+            # print("Start " + startVar.name + " end " + endVar.name)
             newLoop = Loop(startVar, endVar)
             parseIns(inputFile, newLoop)
 
+                # print(line)
             newLoop.setLoopType(type)
 
             # block.addLoop(newLoop) 
@@ -242,7 +257,7 @@ def parseIns(inputFile, block):
             # block.addOperation(parseNoOutOperation(line))
             block.addIns(parseNoOutOperation(line))
         else:
-            print("not handled " + line)
+            print("not handled! " + line)
 
 
 def parseModule(inputFile, module):
@@ -308,7 +323,6 @@ def getOperationStr(op):
         return "COPY"
 
 
-        
 
 def printInstructionOfABlock(block, nest_level):
     instruction_sequence = ""
@@ -333,61 +347,6 @@ def printInstructions(workload):
     print(instruction_sequence)
 
 serial_loop_counter = 0
-def compileHelper(block, nest_level, mapsParser):
-    global serial_loop_counter
-    instruction_sequence = ""
-    for ins in block.getIns():
-        if(isinstance(ins,Loop)):
-            if(ins.type == LoopType.parallel):
-                instruction_sequence += (nest_level*"\t"+"PARALLEL:\n"+compileHelper(ins, nest_level+1, mapsParser))
-            else:
-                seq = (nest_level*"\t" + "MOV " + ins.start.name + ", " + ins.start.val + "\n")
-                seq += (nest_level*"\t" +  "LOOP" + str(serial_loop_counter) + ":\n")
-                seq += ((nest_level+1)*"\t" + "CMP " + ins.start.name + ", " + ins.end.name + "\n")
-                seq += ((nest_level+1)*"\t" + "JT " + "END_LOOP" + str(serial_loop_counter) +"\n")
-                serial_loop_counter += 1
-
-
-                instruction_sequence += (seq + (nest_level-2)*"\t" +compileHelper(ins, nest_level+1, mapsParser))
-
-                seq2 = (nest_level+1)* "\t" + "ADD " + ins.start.name + ", 1\n" 
-                seq2 += (nest_level+1)* "\t" + "J LOOP" + str(serial_loop_counter -1) + "\n"
-                seq2 += (nest_level) * "\t" + "END_LOOP" + str(serial_loop_counter -1) +":\n"
-                instruction_sequence += seq2
-
-
-        elif (isinstance(ins, Operation)):
-            if(ins.operation == SupportedOperation.affine_apply):
-                seq = ""
-                for newIns in mapsParser.apply(ins):
-
-                    seq += (nest_level*"\t" + newIns + "\n")
-                instruction_sequence += (seq)
-
-            elif(ins.operation == SupportedOperation.arith_constant):
-                seq = "MOV " + ins.outputVal + ", " + ins.inVars[1]  + "\n"
-                instruction_sequence += (nest_level*"\t" + seq)
-
-            elif(ins.operation == SupportedOperation.arith_addf):
-                seq = "ADDF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
-                instruction_sequence += (nest_level*"\t" + seq)
-
-            elif(ins.operation == SupportedOperation.arith_mulf):
-                seq = "MULF " + ins.outputVal + ", " + ins.inVars[1]  + ", " + ins.inVars[2] + "\n"
-                instruction_sequence += (nest_level*"\t" + seq)
-
-            else:
-                instruction_sequence += (nest_level*"\t" + getOperationStr(ins.operation) + "\n")
-        else:
-            instruction_sequence += "Unknown\n"
-    return instruction_sequence
-
-def compile(workload):
-    instruction_sequence = ""
-    for module in workload.getModules():
-        for func in module.getFuncs():
-            instruction_sequence+= (compileHelper(func, 0, workload.mapsParser))
-    print(instruction_sequence)
 
 
 workload = Application()

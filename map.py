@@ -19,8 +19,13 @@ class Map:
     
     def setMapFunc (self, func):
         self.mapFunc = func
+    def replaceWithAppOp(self, inFunc):
+        outFunc = inFunc.replace("mod" , "%")
+        outFunc = outFunc.replace("floordiv" , "/")
+        # print("in " + inFunc + " out " + outFunc)
+        return outFunc 
 
-    def apply(self, dimStr=None, symStr=None):
+    def apply(self, variableDic, dimStr=None, symStr=None):
         if(self.type == MapType.define):
             return str(eval(self.mapFunc))
         elif(self.type == MapType.noSymbol):
@@ -28,19 +33,29 @@ class Map:
             i = 0
             tempMapFunc = self.mapFunc
             for dim in dims:
+                if(dim in variableDic):
+                    dim = variableDic[dim]
                 tempMapFunc = tempMapFunc.replace(self.dims[i], dim)
                 i += 1
-            return tempMapFunc[1:][:-1]
+            return str(eval(tempMapFunc[1:][:-1]))
         else:
             dims = dimStr.split(", ")
             i = 0
             tempMapFunc = self.mapFunc
+            print(tempMapFunc)
             for dim in dims:
-                tempMapFunc = tempMapFunc.replace(self.dims[i], dim)
+                if(dim in variableDic):
+                    dim = variableDic[dim]
+                tempMapFunc = tempMapFunc.replace(str(self.dims[i]), str(dim))
                 i += 1
 
+            if(symStr in variableDic):
+                symStr = variableDic[symStr]
             tempMapFunc = tempMapFunc.replace(self.symbol, symStr)
-            return tempMapFunc[1:][:-1]
+            tempMapFunc = self.replaceWithAppOp(tempMapFunc)
+            # print(tempMapFunc)
+            # print(variableDic)
+            return str(eval(tempMapFunc))
 
 def Priority(tok):
     if tok is "^" or tok is "mod" or tok is "floordiv":
@@ -296,28 +311,35 @@ class MapsParser:
             return (InfixToReg(map.apply(dims, symbols), ins.outputVal))
             # return map.apply(dims, symbols)
 
-    def applyNDP(self, ins, isKernel):
+    def applyNDP(self, ins, isKernel, variableDic):
         mapName = ins.inVars[1].split("(")[0]
         map = self.maps[mapName]
         if(map.type == MapType.define):
-            if(isKernel):
-                kernelOp = NDPOperation(NDPOps.MOV)
-                kernelOp.setOutputVar(ins.outputVal)
-                kernelOp.setInputVars(map.apply(),1)
-                return [kernelOp]
-            else:
-                hostOp = HostOperation(HOSTOps.MOV)
-                hostOp.setOutputVar(ins.outputVal)
-                hostOp.setInputVars(map.apply(),1)
-                return [hostOp]
+            # if(isKernel):
+            #     kernelOp = NDPOperation(NDPOps.MOV)
+            #     kernelOp.setOutputVar(ins.outputVal)
+            #     kernelOp.setInputVars(map.apply(),1)
+            #     # return [kernelOp]
+            # else:
+            #     hostOp = HostOperation(HOSTOps.MOV)
+            #     hostOp.setOutputVar(ins.outputVal)
+            #     hostOp.setInputVars(map.apply(),1)
+            #     return [hostOp]
+            variableDic[ins.outputVal] = map.apply(variableDic)
+            return [], variableDic
 
         elif(map.type == MapType.noSymbol):
             dims = ins.inVars[1].split("(")[1].split(")")[0]
-            return InfixToRegNDP(map.apply(dims), ins.outputVal, isKernel)
+            # print(InfixToRegNDP(map.apply(variableDic, dims), ins.outputVal, isKernel), variableDic)
+            variableDic[ins.outputVal] = map.apply(variableDic, dims)
+
+            return [], variableDic
         elif(map.type == MapType.withSymbol):
             dims = ins.inVars[1].split("(")[1].split(")")[0]
             symbols = ins.inVars[1].split("(")[1].split(")")[1][1:][:-1]
-            return InfixToRegNDP(map.apply(dims, symbols), ins.outputVal,isKernel)
+            # return InfixToRegNDP(map.apply(dims, symbols), ins.outputVal,isKernel), variableDic
+            variableDic[ins.outputVal] = map.apply(variableDic, dims, symbols)
+            return [], variableDic
 
 
 
