@@ -151,36 +151,6 @@ class NDPSystem:
         return []
 
         
-    
-    def parallelLoopKernel(self, block, mapsParser, variableDic):
-        startPoint = self.evalDic(variableDic, block.start.val)
-        endPoint = self.evalDic(variableDic, block.end.val)
-            
-        kernels = []
-        
-        for i in range (int(startPoint), int(endPoint) + 1):
-            newKernel = NDPKernel(NDPKernelType.PARALLEL)
-            variableDic[block.start.name] = i
-            for ins in block.ins:
-                if(isinstance(ins, Loop)):
-                    if(ins.type == LoopType.parallel):
-                        kernels+= self.parallelLoopKernel(ins, mapsParser, variableDic)
-                    else:
-                        print("Oyyy" )
-                        variableDic[ins.start.name] = ins.start.val
-                        print(variableDic)
-                        res = self.parseIns(ins, mapsParser, True, variableDic)
-                        variableDic = res[1]
-                        newKernel.addIns(res[0])
-                else:
-                    res = self.parseIns(ins, mapsParser, True, variableDic)
-                    variableDic = res[1]
-                    newKernel.addIns(res[0])
-
-            kernels+= [newKernel]
-
-        # self.printNDPIns(kernels)
-        return kernels
 
     def addLoopStartIns(self, ins, host_temp_reg_counter, serial_loop_counter):
         res = []
@@ -221,22 +191,31 @@ class NDPSystem:
         for ins in block.getIns():
             if(isinstance(ins,Loop)):
                 if(ins.type == LoopType.parallel):
+                    currLoopCounter = self.serial_loop_counter
+                    currHostRegCounter = self.host_temp_reg_counter
+                    self.serial_loop_counter += 1
+                    self.host_temp_reg_counter += 1
+
                     localVars = [ins.start.name, ins.end.name]
-                    hostInst += self.addLoopStartIns(ins, self.host_temp_reg_counter, self.serial_loop_counter)
+                    hostInst += self.addLoopStartIns(ins, currHostRegCounter, currLoopCounter)
                     
                     j = 2 
                     tempIns = []
                     loopCount = 1
                     while(True):
                         if(len(ins.ins) == 1 and ins.ins[0].type == LoopType.parallel):
+                            self.host_temp_reg_counter+=2
+                            self.serial_loop_counter+=1
                             localVars += [ins.ins[0].start.name, ins.ins[0].end.name]
                             tempIns += [ins.ins[0]]
-                            hostInst += self.addLoopStartIns(ins.ins[0], self.host_temp_reg_counter+(j/2), self.serial_loop_counter + j)
+                            hostInst += self.addLoopStartIns(ins.ins[0], self.host_temp_reg_counter, self.serial_loop_counter)
                             j += 2
                             ins = ins.ins[0]
                             loopCount += 1
                         
                         else:
+                            self.serial_loop_counter+=2
+
                             newKernel = NDPKernel(localVars, self.ndp_kernel_count)
                             for l_ins in ins.ins:
                                 newKernel.addIns(self.parseIns(l_ins, mapsParser, True, variableDic)[0])
@@ -252,13 +231,13 @@ class NDPSystem:
                             break 
 
                     j -= 2
-                    while(j>0):
-                        hostInst += self.addLoopEndIns(tempIns[-1], self.serial_loop_counter + j)
+                    i = 2
+                    while(i <= j):
+                        hostInst += self.addLoopEndIns(tempIns[-1], self.serial_loop_counter - i*2)
                         tempIns = tempIns[:-1]
-                        j -= 2
-                    hostInst += self.addLoopEndIns(ins, self.serial_loop_counter)
-                    self.serial_loop_counter += loopCount
-                    self.host_temp_reg_counter += loopCount
+                        i += 2
+                    hostInst += self.addLoopEndIns(ins, currLoopCounter)
+                    
 
 
                 else:
