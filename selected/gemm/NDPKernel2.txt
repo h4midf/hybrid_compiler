@@ -1,0 +1,23 @@
+MOV %arg9, 0
+LABEL3:
+CMP temp1, %arg9, %0
+JT temp1, LABEL4
+CALL_NDP NDPKernel0, ['%arg9', '%0']
+ADD %arg9, %arg9, 1
+J LABEL3
+LABEL4:
+MOV %arg9, 0
+LABEL6:
+CMP temp0, %arg9, %1
+JT temp0, LABEL7
+MOV %arg10, 0
+LABEL8:
+CMP temp2, %arg10, %0
+JT temp2, LABEL9
+CALL_NDP NDPKernel1, ['%arg10', '%0']
+ADD %arg10, %arg10, 1
+J LABEL8
+LABEL9:
+ADD %arg9, %arg9, 1
+J LABEL9
+LABEL7:

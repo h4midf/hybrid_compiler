@@ -1,0 +1,9 @@
+STORE %cst, %arg4['%arg7', '%arg7']
+MOV %arg8, %arg7+1
+LABEL17:
+CMP temp6, %arg8, %0
+JT temp6, LABEL18
+CALL_NDP NDPKernel3, ['%arg8', '%0']
+ADD %arg8, %arg8, 1
+J LABEL17
+LABEL18:

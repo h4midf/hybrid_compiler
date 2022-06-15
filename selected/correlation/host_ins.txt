@@ -1,0 +1,57 @@
+---args---
+%arg0 : i32
+%arg1 : i32
+%arg2 : f64
+%arg3 : memref<?x1200xf64>
+%arg4 : memref<?x1200xf64>
+%arg5 : memref<?xf64>
+%arg6 : memref<?xf64>
+---end-args---
+MOV %c-1, -1
+MOV %cst, 1.000000e+00
+MOV %cst_0, 0.000000e+00
+MOV %cst_1, 1.000000e-01
+MOV %c1, 1
+MOV %arg7, 0
+LABEL0:
+CMP temp0, %arg7, %0
+JT temp0, LABEL1
+CALL_NDP NDPKernel0, ['%arg7', '%0']
+ADD %arg7, %arg7, 1
+J LABEL0
+LABEL1:
+MOV %arg7, 0
+LABEL5:
+CMP temp1, %arg7, %0
+JT temp1, LABEL6
+CALL_NDP NDPKernel1, ['%arg7', '%0']
+ADD %arg7, %arg7, 1
+J LABEL5
+LABEL6:
+SQRT%2,  %arg2
+MOV %arg7, 0
+LABEL10:
+CMP temp2, %arg7, %1
+JT temp2, LABEL11
+MOV %arg8, 0
+LABEL12:
+CMP temp5, %arg8, %0
+JT temp5, LABEL13
+CALL_NDP NDPKernel2, ['%arg7', '%1', '%arg8', '%0']
+ADD %arg8, %arg8, 1
+J LABEL10
+LABEL11:
+ADD %arg8, %arg8, 1
+J LABEL10
+LABEL11:
+ADDI %3, %0, %c-1
+MOV %arg7, 0
+LABEL14:
+CMP temp5, %arg7, %3
+JT temp5, LABEL15
+CALL_NDP NDPKernel4, ['%arg7', '%3']
+ADD %arg7, %arg7, 1
+J LABEL14
+LABEL15:
+SUBI %4, %0, %c1
+STORE %cst, %arg4['%4', '%4']

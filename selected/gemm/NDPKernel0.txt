@@ -1,0 +1,3 @@
+LOAD %3, %arg5['%arg8', '%arg9']
+MULF %4, %3, %arg4
+STORE %4, %arg5['%arg8', '%arg9']

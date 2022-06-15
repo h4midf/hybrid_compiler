@@ -1,0 +1,16 @@
+LOAD %4, %arg10['%arg11', '%arg12']
+MULF %5, %4, %arg5
+STORE %5, %arg10['%arg11', '%arg12']
+MOV %arg13, 0
+LABEL10:
+CMP temp1, %arg13, %1
+JT temp1, LABEL11
+LOAD %6, %arg6['%arg11', '%arg13']
+LOAD %7, %arg9['%arg13', '%arg12']
+MULF %8, %6, %7
+LOAD %9, %arg10['%arg11', '%arg12']
+ADDF %10, %9, %8
+STORE %10, %arg10['%arg11', '%arg12']
+ADD %arg13, %arg13, 1
+J LABEL10
+LABEL11:

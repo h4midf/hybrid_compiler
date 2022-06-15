@@ -1,0 +1,8 @@
+LOAD %5, %arg5['%arg8']
+LOAD %6, %arg3['%arg7', '%arg8']
+SUBF %7, %6, %5
+STORE %7, %arg3['%arg7', '%arg8']
+LOAD %8, %arg6['%arg8']
+MULF %9, %2, %8
+DIVF %10, %7, %9
+STORE %10, %arg3['%arg7', '%arg8']

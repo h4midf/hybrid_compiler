@@ -1,0 +1,14 @@
+MOV %arg13, 0
+LABEL7:
+CMP temp0, %arg13, %arg0
+JT temp0, LABEL8
+LOAD %1, %arg9['%arg12']
+LOAD %2, %arg3['%arg13', '%arg12']
+MULF %3, %arg2, %2
+LOAD %4, %arg10['%arg13']
+MULF %5, %3, %4
+ADDF %6, %1, %5
+STORE %6, %arg9['%arg12']
+ADD %arg13, %arg13, 1
+J LABEL7
+LABEL8:

@@ -1,9 +1,4 @@
-from ast import FloorDiv
 import enum 
-# class HostRegs:
-#     def __init__ (self, count):
-#         self.regCount = count
-#     def acquireReg(self, inputs):
 
 class NDPSysOps (enum.Enum):
     LABEL = 0
@@ -24,11 +19,16 @@ class NDPSysOps (enum.Enum):
     SUBF = 21
     MULF = 22
     DIVF = 23 # DIVF DST, SRC1, SRC2
+    ADDI = 24
+    SUBI = 25
 
     CMP = 30  # CMP DST, ARG1, ARG2
     JT = 31   # JT REG, LABEL
     J = 32    # J LABEL
 
+    SQRT = 40 # SQRT DST, SRC
+    CMPF = 41
+    SELECT = 42 # SELECT DST, COND, S1, S2
     
     ALLOC = 102 # ALLOC (3,3,27,28), f32 !
     COPY = 103  # COPY SRC, DST
@@ -40,12 +40,6 @@ class NDPSysOps (enum.Enum):
     MOV_SIG = 202
     END_NDP = 210
 
-
- 
-
-class SerialLoop:
-    def __init__ (self, index):
-        self.index = index
 
 
 
@@ -78,33 +72,3 @@ class NDPSysOperation:
     def getAdditionalInfo(self):
         return self.info
 
-
-class HostKernel:
-    def __init__ (self, name, args):
-        self.name = name 
-        self.args = args
-        self.ins = []
-    
-    def addIns (self, ins):
-        self.ins += [ins]
-
-class NDPKernel:
-    def __init__ (self, name, args):
-        self.name = name 
-        self.args = args
-        self.ins = []
-    
-    def addIns (self, ins):
-        self.ins += [ins]
-    
-class HybridApplication:
-    def __init__ (self):
-        self.hostKernels = []
-        self.ndpKernels = []
-    
-    def addHostKernel(self, kernel):
-        self.hostKernels += [kernel]
-
-    def addNDPKernel(self, kernel):
-        self.ndpKernels += [kernel]
-     

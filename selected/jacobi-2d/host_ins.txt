@@ -1,0 +1,44 @@
+---args---
+%arg0 : i32
+%arg1 : i32
+%arg2 : memref<?x1300xf64>
+%arg3 : memref<?x1300xf64>
+---end-args---
+MOV %cst, 2.000000e-01
+MOV %arg4, 0
+LABEL0:
+CMP temp0, %arg4, %1
+JT temp0, LABEL1
+MOV %arg5, 1
+LABEL2:
+CMP temp0, %arg5, (%0)-1
+JT temp0, LABEL3
+MOV %arg6, 1
+LABEL4:
+CMP temp3, %arg6, (%0)-1
+JT temp3, LABEL5
+CALL_NDP NDPKernel0, ['%arg5', '(%0)-1', '%arg6', '(%0)-1']
+ADD %arg6, %arg6, 1
+J LABEL2
+LABEL3:
+ADD %arg6, %arg6, 1
+J LABEL2
+LABEL3:
+MOV %arg5, 1
+LABEL6:
+CMP temp3, %arg5, (%0)-1
+JT temp3, LABEL7
+MOV %arg6, 1
+LABEL8:
+CMP temp6, %arg6, (%0)-1
+JT temp6, LABEL9
+CALL_NDP NDPKernel1, ['%arg5', '(%0)-1', '%arg6', '(%0)-1']
+ADD %arg6, %arg6, 1
+J LABEL6
+LABEL7:
+ADD %arg6, %arg6, 1
+J LABEL6
+LABEL7:
+ADD %arg4, %arg4, 1
+J LABEL8
+LABEL1:

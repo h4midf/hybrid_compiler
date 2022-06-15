@@ -5,11 +5,7 @@ from map import *
 from operation import *
 from code_structure import *
 
-# selected_file = "./stencils/seidel-2d/seidel-2d.mlir"
-# selected_file = "./stencils/jacobi-2d/jacobi-2d.mlir"
-# selected_file = "./selected/conv2d/conv2d-opt.mlir"
-selected_file = "./selected/3mm/3mm-opt.mlir"
-
+benchmark_workloads = ["2mm", "3mm", "atax", "correlation" , "gemm", "gemver", "correlation", "jacobi-2d"]
 
 
 
@@ -49,7 +45,7 @@ def handleType(typeStr):
 
 def parseInputVar(input):
     if(input.find("symbol")!=-1):
-        return input.split("symbol(")[1].split(")")[0]
+        return input.replace("symbol", "")
     return input
 def parse_arith_index_cast(line):
     # print(line)
@@ -89,6 +85,48 @@ def parse_arith_addf(line):
     op.setOutputType(handleType(type))
     return op
 
+def parse_arith_subf(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_subf)
+    op.setOutputType(handleType(type))
+    return op
+
+def parse_arith_addi(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_addi)
+    op.setOutputType(handleType(type))
+    return op
+
+def parse_arith_subi(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_subi)
+    op.setOutputType(handleType(type))
+    return op
+
 def parse_arith_mulf(line):
     # print(line)
     output = line.split(" = ")[0]
@@ -102,6 +140,64 @@ def parse_arith_mulf(line):
     op.setOperation(SupportedOperation.arith_mulf)
     op.setOutputType(handleType(type))
     return op
+
+def parse_arith_divf(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input1 = parseInputVar(line.split(" ")[3].split(",")[0])
+    input2 = parseInputVar(line.split(" ")[4])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_divf)
+    op.setOutputType(handleType(type))
+    return op
+
+def parse_math_sqrt(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input = parseInputVar(line.split("math.sqrt")[1].split(" : ")[0])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input, 1)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.math_sqrt)
+    op.setOutputType(handleType(type))
+    return op
+
+def parse_arith_cmpf(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    input1 = parseInputVar(line.split(", ")[1])
+    input2 = parseInputVar(line.split(", ")[2].split(" : ")[0])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_cmpf)
+    op.setOutputType(handleType(type))
+    return op
+
+def parse_arith_select(line):
+    # print(line)
+    output = line.split(" = ")[0]
+    line = line.split("arith.select")[1]
+    input1 = parseInputVar(line.split(", ")[0])
+    input2 = parseInputVar(line.split(", ")[1])
+    input3 = parseInputVar(line.split(", ")[2].split(" : ")[0])
+    type = line.split(" : ")[1]
+    op = Operation()
+    op.setInVar(input1, 1)
+    op.setInVar(input2, 2)
+    op.setInVar(input3, 3)
+    op.setOutputVar(output)
+    op.setOperation(SupportedOperation.arith_select)
+    op.setOutputType(handleType(type))
+    return op
+
 
 def parse_affine_load (line):
     # print(line)
@@ -178,14 +274,29 @@ def parseOperation(line):
         return parse_arith_constant(line)
     elif(operation == "arith.addf"):
         return parse_arith_addf(line)
+    elif(operation == "arith.subf"):
+        return parse_arith_subf(line)
+    elif(operation == "arith.addi"):
+        return parse_arith_addi(line)
+    elif(operation == "arith.subi"):
+        return parse_arith_subi(line)
     elif(operation == "arith.mulf"):
         return parse_arith_mulf(line)
+    elif(operation == "arith.divf"):
+        return parse_arith_divf(line)
     elif(operation == "affine.load"):
         return parse_affine_load(line)
     elif(operation == "affine.apply"):
         return parse_affine_apply(line)
     elif(operation == "memref.alloc()"):
         return parse_memref_alloc(line)
+    elif(operation == "math.sqrt"):
+        return parse_math_sqrt(line)
+    elif(operation == "arith.cmpf"):
+        return parse_arith_cmpf(line)
+    elif(operation == "arith.select"):
+        return parse_arith_select(line)
+        
 
     else:
         print("not handled !! " + operation)
@@ -323,7 +434,6 @@ def getOperationStr(op):
         return "COPY"
 
 
-
 def printInstructionOfABlock(block, nest_level):
     instruction_sequence = ""
     for ins in block.getIns():
@@ -349,13 +459,13 @@ def printInstructions(workload):
 serial_loop_counter = 0
 
 
-workload = Application()
-parseIR(selected_file, workload)
-# printInstructions(workload)
+for work in benchmark_workloads:
+    full_address = "./selected/"+work+"/"+work+"-opt.mlir"
+    workload = Application()
+    parseIR(full_address, workload)
 
-# compile(workload)
-ndpSystem = NDPSystem()
-ndpSystem.splitToHostNDP(workload)
+    ndpSystem = NDPSystem()
+    ndpSystem.splitToHostNDP(workload, work)
 
 
 

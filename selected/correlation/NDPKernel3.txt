@@ -1,0 +1,16 @@
+STORE %cst_0, %arg4['%arg7', '%arg8']
+MOV %arg9, 0
+LABEL20:
+CMP temp2, %arg9, %1
+JT temp2, LABEL21
+LOAD %6, %arg3['%arg9', '%arg7']
+LOAD %7, %arg3['%arg9', '%arg8']
+MULF %8, %6, %7
+LOAD %9, %arg4['%arg7', '%arg8']
+ADDF %10, %9, %8
+STORE %10, %arg4['%arg7', '%arg8']
+ADD %arg9, %arg9, 1
+J LABEL20
+LABEL21:
+LOAD %5, %arg4['%arg7', '%arg8']
+STORE %5, %arg4['%arg8', '%arg7']
