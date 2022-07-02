@@ -20,7 +20,7 @@ MOV %arg12, 0
 LABEL2:
 CMP temp3, %arg12, %1
 JT temp3, LABEL3
-CALL_NDP NDPKernel0, ['%arg11', '%arg0', '%arg12', '%1']
+CALL_NDP NDPKernel0, ['%arg11', '%arg0', '%arg12', '%1', %arg2]
 ADD %arg12, %arg12, 1
 J LABEL2
 LABEL3:

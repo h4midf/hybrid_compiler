@@ -1,4 +1,0 @@
-LOAD %1, %arg9['%arg12']
-LOAD %2, %arg11['%arg12']
-ADDF %3, %1, %2
-STORE %3, %arg9['%arg12']
